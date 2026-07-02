@@ -1,5 +1,5 @@
 /* Sổ Thu Chi — service worker: cache app để mở được khi không có mạng */
-const CACHE = 'sothuchi-v1';
+const CACHE = 'sothuchi-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

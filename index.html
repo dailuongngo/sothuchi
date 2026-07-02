@@ -221,22 +221,27 @@
   <!-- ===== BIỂU ĐỒ ===== -->
   <section class="view" id="view-bieudo">
     <div class="card">
-      <h2>Chi theo danh mục</h2>
+      <h2>Chi tiêu trong tháng</h2>
       <div class="chart" id="chartCat"></div>
     </div>
     <div class="card">
-      <h2>Chi theo ngày trong tháng</h2>
-      <div class="chart" id="chartDay"></div>
-    </div>
-    <div class="card">
-      <h2>Thu – chi 6 tháng gần nhất</h2>
-      <div class="chart" id="chartTrend"></div>
-      <div class="legend"><span><i style="background:var(--green)"></i>Thu</span><span><i style="background:var(--red)"></i>Chi</span></div>
+      <h2>Tổng kết toàn bộ thời gian</h2>
+      <p class="hint" id="allRange"></p>
+      <div class="chart" id="chartAll"></div>
     </div>
   </section>
 
   <!-- ===== DỮ LIỆU ===== -->
   <section class="view" id="view-dulieu">
+    <div class="card">
+      <h2>Thống kê nhanh</h2>
+      <div class="kv"><span>Tổng thu (toàn bộ)</span><b class="num" id="statThuAll" style="color:var(--green)">0 ₫</b></div>
+      <div class="kv"><span>Tổng chi (toàn bộ)</span><b class="num" id="statChiAll" style="color:var(--red)">0 ₫</b></div>
+      <div class="kv"><span>Còn lại (toàn bộ)</span><b class="num" id="statConAll">0 ₫</b></div>
+      <div class="kv"><span>Đã tiết kiệm/đầu tư (tất cả)</span><b class="num" id="statSave">0 ₫</b></div>
+      <div class="kv"><span>Tổng số giao dịch</span><b class="num" id="statCount">0</b></div>
+      <div class="kv"><span>Giao dịch đầu tiên</span><b class="num" id="statFirst">—</b></div>
+    </div>
     <div class="card">
       <h2>Sao lưu &amp; khôi phục</h2>
       <p class="hint">Dữ liệu chỉ nằm trên máy bạn. Nên xuất file sao lưu định kỳ để không mất dữ liệu khi đổi máy hoặc xóa trình duyệt.</p>
@@ -245,12 +250,6 @@
       <label class="f" for="importFile" style="margin-top:16px">Khôi phục từ file sao lưu</label>
       <input type="file" id="importFile" accept=".json,application/json">
       <button class="btn danger" id="wipe">Xóa toàn bộ dữ liệu</button>
-    </div>
-    <div class="card">
-      <h2>Thống kê nhanh</h2>
-      <div class="kv"><span>Tổng số giao dịch</span><b class="num" id="statCount">0</b></div>
-      <div class="kv"><span>Giao dịch đầu tiên</span><b class="num" id="statFirst">—</b></div>
-      <div class="kv"><span>Đã tiết kiệm/đầu tư (tất cả)</span><b class="num" id="statSave">0 ₫</b></div>
     </div>
   </section>
 </main>
@@ -309,12 +308,13 @@ const CATS = {
     {id:'bhxh',    n:'BHXH',       e:'🛡️', b:'save'},
     {id:'khancap', n:'Quỹ khẩn cấp',e:'🚨', b:'save'},
     {id:'dautu',   n:'Đầu tư',     e:'📈', b:'save'},
+    {id:'congviec',n:'Công việc',  e:'💼', b:'save'},
     {id:'khac',    n:'Khác',       e:'📦', b:'want'}
   ],
   thu: [
     {id:'luong', n:'Lương',  e:'💵'},
     {id:'thuong',n:'Thưởng', e:'🧧'},
-    {id:'phu',   n:'Thu phụ',e:'🔧'},
+    {id:'phu',   n:'Tiền lãi',e:'🏦'},
     {id:'thukhac',n:'Khác',  e:'📦'}
   ]
 };
@@ -508,47 +508,38 @@ function renderCharts(list){
     $('#chartCat').innerHTML = s+'</svg>';
   }
 
-  /* --- Chi theo ngày: cột --- */
-  const days = new Date(cur.getFullYear(), cur.getMonth()+1, 0).getDate();
-  const perDay = new Array(days).fill(0);
-  list.filter(t=>t.type==='chi').forEach(t=>{
-    const d = Number(t.date.slice(8,10));
-    if(d>=1 && d<=days) perDay[d-1]+=t.amount;
-  });
-  const maxD = Math.max(...perDay, 1);
-  const W=460, H=140, pad=6, bw=(W-pad*2)/days;
-  let s2 = svgOpen(W,H+18);
-  perDay.forEach((v,i)=>{
-    const h = v>0 ? Math.max(v/maxD*(H-24), 2) : 0;
-    if(v>0) s2 += '<rect x="'+(pad+i*bw+1)+'" y="'+(H-h)+'" width="'+Math.max(bw-2,1.5)+'" height="'+h+'" rx="2" fill="#C4453B"/>';
-    if((i+1)%5===0||i===0) s2 += '<text x="'+(pad+i*bw+bw/2)+'" y="'+(H+13)+'" text-anchor="middle" font-size="9.5" fill="#6B7F77">'+(i+1)+'</text>';
-  });
-  if(maxD>1) s2 += '<text x="'+pad+'" y="12" font-size="10" fill="#6B7F77">cao nhất: '+fmtShort(maxD)+'</text>';
-  $('#chartDay').innerHTML = s2+'</svg>';
-
-  /* --- Xu hướng 6 tháng --- */
-  const months=[];
-  for(let i=5;i>=0;i--){
-    const d = new Date(cur.getFullYear(), cur.getMonth()-i, 1);
-    const k = ym(d);
-    const mtx = state.tx.filter(t=>t.date.slice(0,7)===k);
-    months.push({
-      label:(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2),
-      thu:mtx.filter(t=>t.type==='thu').reduce((a,t)=>a+t.amount,0),
-      chi:mtx.filter(t=>t.type==='chi').reduce((a,t)=>a+t.amount,0)
+  /* --- Tổng kết toàn bộ thời gian: 3 thanh ngang --- */
+  const allThu = state.tx.filter(t=>t.type==='thu').reduce((s,t)=>s+t.amount,0);
+  const allChi = state.tx.filter(t=>t.type==='chi').reduce((s,t)=>s+t.amount,0);
+  const allCon = allThu - allChi;
+  const first = state.tx.slice().sort((a,b)=>a.date.localeCompare(b.date))[0];
+  $('#allRange').textContent = first
+    ? 'Từ '+first.date.split('-').reverse().join('/')+' đến nay'
+    : '';
+  if(!state.tx.length){
+    $('#chartAll').innerHTML = '<p class="hint">Chưa có dữ liệu.</p>';
+  } else {
+    const items = [
+      {n:'Thu',     v:allThu, c:'#0E7C5B'},
+      {n:'Chi',     v:allChi, c:'#C4453B'},
+      {n:'Còn lại', v:allCon, c: allCon>=0 ? '#2D5FA6' : '#C4453B'}
+    ];
+    const maxA = Math.max(allThu, allChi, Math.abs(allCon), 1);
+    const W=460, rh=44, labelW=76;
+    let s2 = svgOpen(W, items.length*rh);
+    items.forEach((it,i)=>{
+      const y = i*rh+8;
+      const bw = Math.max((W-labelW-10) * Math.abs(it.v)/maxA, 3);
+      s2 += '<text x="'+(labelW-10)+'" y="'+(y+16)+'" text-anchor="end" font-size="12.5" font-weight="600" fill="#1B2E28">'+it.n+'</text>';
+      s2 += '<rect x="'+labelW+'" y="'+y+'" width="'+bw+'" height="24" rx="7" fill="'+it.c+'"/>';
+      const inside = bw > 110;
+      s2 += '<text x="'+(inside ? labelW+bw-8 : labelW+bw+8)+'" y="'+(y+16.5)
+          + '" text-anchor="'+(inside?'end':'start')+'" font-size="12" font-weight="700" fill="'
+          + (inside?'#FFFFFF':'#1B2E28')+'">'+(it.v<0?'-':'')
+          + new Intl.NumberFormat('vi-VN').format(Math.round(Math.abs(it.v)))+' ₫</text>';
     });
+    $('#chartAll').innerHTML = s2+'</svg>';
   }
-  const maxT = Math.max(...months.map(m=>Math.max(m.thu,m.chi)), 1);
-  const W3=460, H3=150, colW=W3/6;
-  let s3 = svgOpen(W3,H3+20);
-  months.forEach((m,i)=>{
-    const x0 = i*colW+colW/2;
-    const hT = m.thu/maxT*(H3-20), hC = m.chi/maxT*(H3-20);
-    s3 += '<rect x="'+(x0-19)+'" y="'+(H3-hT)+'" width="16" height="'+Math.max(hT,1)+'" rx="3" fill="#0E7C5B"/>';
-    s3 += '<rect x="'+(x0+3)+'"  y="'+(H3-hC)+'" width="16" height="'+Math.max(hC,1)+'" rx="3" fill="#C4453B"/>';
-    s3 += '<text x="'+x0+'" y="'+(H3+15)+'" text-anchor="middle" font-size="10.5" fill="#6B7F77">'+m.label+'</text>';
-  });
-  $('#chartTrend').innerHTML = s3+'</svg>';
 }
 
 /* ================= Sheet thêm/sửa ================= */
@@ -686,6 +677,14 @@ $('#wipe').addEventListener('click', ()=>{
   save(); render(); fillBudgetForm(); toast('Đã xóa toàn bộ dữ liệu');
 });
 function renderDataStats(){
+  const thuAll = state.tx.filter(t=>t.type==='thu').reduce((s,t)=>s+t.amount,0);
+  const chiAll = state.tx.filter(t=>t.type==='chi').reduce((s,t)=>s+t.amount,0);
+  $('#statThuAll').textContent = fmt(thuAll);
+  $('#statChiAll').textContent = fmt(chiAll);
+  const con = thuAll - chiAll;
+  const conEl = $('#statConAll');
+  conEl.textContent = (con<0?'-':'')+fmt(Math.abs(con));
+  conEl.style.color = con>=0 ? 'var(--save)' : 'var(--red)';
   $('#statCount').textContent = state.tx.length;
   const first = state.tx.slice().sort((a,b)=>a.date.localeCompare(b.date))[0];
   $('#statFirst').textContent = first ? first.date.split('-').reverse().join('/') : '—';
