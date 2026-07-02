@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0E7C5B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Sổ Thu Chi</title>
+<style>
+  :root{
+    --bg:#F2F5F3; --card:#FFFFFF; --ink:#1B2E28; --muted:#6B7F77;
+    --line:#E2E9E5; --green:#0E7C5B; --green-soft:#E3F2EC;
+    --red:#C4453B; --red-soft:#F9E9E7;
+    --need:#0E7C5B; --want:#D98E32; --save:#2D5FA6;
+    --radius:14px; --shadow:0 1px 3px rgba(27,46,40,.08);
+    font-size:16px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.45;
+    max-width:520px; margin:0 auto; padding-bottom:76px;
+  }
+  h1,h2,h3{font-weight:700; letter-spacing:-.01em}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ===== Header & month nav ===== */
+  header{
+    background:var(--green); color:#fff; padding:14px 16px 18px;
+    border-radius:0 0 20px 20px;
+  }
+  header .brand{font-size:.8rem; opacity:.85; text-transform:uppercase; letter-spacing:.12em}
+  .month-nav{display:flex; align-items:center; justify-content:space-between; margin-top:6px}
+  .month-nav h1{font-size:1.35rem}
+  .month-nav button{
+    background:rgba(255,255,255,.16); border:none; color:#fff; width:38px; height:38px;
+    border-radius:50%; font-size:1.15rem; cursor:pointer;
+  }
+  .totals{display:flex; gap:8px; margin-top:14px}
+  .totals .box{flex:1; background:rgba(255,255,255,.12); border-radius:12px; padding:8px 10px}
+  .totals .lbl{font-size:.7rem; opacity:.85}
+  .totals .val{font-size:.95rem; font-weight:700; margin-top:2px}
+
+  /* ===== Storage banner ===== */
+  #storeWarn{display:none; background:#FDF3D7; color:#7A5A0E; font-size:.8rem;
+    padding:8px 14px; margin:10px 12px 0; border-radius:10px}
+
+  /* ===== Tabs (bottom) ===== */
+  nav.tabs{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:520px; background:var(--card);
+    border-top:1px solid var(--line); display:flex; z-index:40;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav.tabs button{
+    flex:1; background:none; border:none; padding:10px 0 8px; cursor:pointer;
+    color:var(--muted); font-size:.68rem; display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  nav.tabs button .ico{font-size:1.25rem; line-height:1}
+  nav.tabs button.on{color:var(--green); font-weight:700}
+
+  main{padding:12px}
+  section.view{display:none}
+  section.view.on{display:block}
+  .card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:14px; margin-bottom:12px}
+  .card h2{font-size:.95rem; margin-bottom:10px}
+  .hint{font-size:.78rem; color:var(--muted)}
+
+  /* ===== Transaction list ===== */
+  .tx-day{font-size:.75rem; color:var(--muted); margin:14px 4px 6px; font-weight:600}
+  .tx{
+    background:var(--card); border-radius:12px; box-shadow:var(--shadow);
+    display:flex; align-items:center; gap:10px; padding:10px 12px; margin-bottom:8px;
+  }
+  .tx .dot{width:38px; height:38px; border-radius:12px; display:flex; align-items:center;
+    justify-content:center; font-size:1.05rem; flex-shrink:0}
+  .tx.chi .dot{background:var(--red-soft)}
+  .tx.thu .dot{background:var(--green-soft)}
+  .tx .mid{flex:1; min-width:0}
+  .tx .cat{font-weight:600; font-size:.9rem}
+  .tx .note{font-size:.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .tx .amt{font-weight:700; font-size:.9rem}
+  .tx.chi .amt{color:var(--red)}
+  .tx.thu .amt{color:var(--green)}
+  .empty{text-align:center; color:var(--muted); padding:44px 20px; font-size:.9rem}
+  .empty .big{font-size:2.2rem; margin-bottom:8px}
+
+  /* ===== FAB ===== */
+  #fab{
+    position:fixed; right:calc(50% - 244px); bottom:78px; z-index:41;
+    width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--green); color:#fff; font-size:1.9rem; line-height:1;
+    box-shadow:0 4px 14px rgba(14,124,91,.4);
+  }
+  @media (max-width:520px){ #fab{right:16px} }
+
+  /* ===== Budget gauge (signature) ===== */
+  .gauge{margin-top:4px}
+  .gauge .row{margin-bottom:14px}
+  .gauge .top{display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:5px}
+  .gauge .top b{font-size:.82rem}
+  .bar{height:14px; border-radius:7px; background:var(--line); overflow:hidden; position:relative}
+  .bar .fill{height:100%; border-radius:7px; transition:width .4s}
+  .bar.need .fill{background:var(--need)}
+  .bar.want .fill{background:var(--want)}
+  .bar.save .fill{background:var(--save)}
+  .bar .fill.over{background:var(--red)!important}
+  .gauge .sub{font-size:.72rem; color:var(--muted); margin-top:3px}
+
+  /* ===== Forms ===== */
+  label.f{display:block; font-size:.78rem; color:var(--muted); margin:10px 0 4px}
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px;
+    font-size:1rem; background:#fff; color:var(--ink); font-family:inherit;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--green); border-color:transparent}
+  .btn{
+    display:inline-block; width:100%; padding:13px; border:none; border-radius:12px;
+    background:var(--green); color:#fff; font-size:1rem; font-weight:700; cursor:pointer; margin-top:14px;
+  }
+  .btn.ghost{background:var(--green-soft); color:var(--green)}
+  .btn.danger{background:var(--red-soft); color:var(--red)}
+  .btn.sm{width:auto; padding:9px 14px; font-size:.85rem; margin-top:0}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .seg{display:flex; background:var(--bg); border-radius:10px; padding:3px; margin-top:2px}
+  .seg button{flex:1; border:none; background:none; padding:9px; border-radius:8px;
+    font-size:.9rem; font-weight:600; color:var(--muted); cursor:pointer}
+  .seg button.on.chi{background:var(--red); color:#fff}
+  .seg button.on.thu{background:var(--green); color:#fff}
+
+  /* ===== Bottom sheet ===== */
+  #sheetWrap{position:fixed; inset:0; background:rgba(20,32,27,.45); z-index:50; display:none}
+  #sheetWrap.on{display:block}
+  #sheet{
+    position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:520px; background:var(--card);
+    border-radius:20px 20px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    max-height:88vh; overflow-y:auto;
+  }
+  #sheet h2{font-size:1.05rem}
+  .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px}
+  .sheet-head button{background:none; border:none; font-size:1.4rem; color:var(--muted); cursor:pointer; padding:4px 8px}
+  .catgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:4px}
+  .catgrid button{
+    border:1px solid var(--line); background:#fff; border-radius:10px; padding:8px 2px;
+    font-size:.68rem; cursor:pointer; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .catgrid button .e{font-size:1.2rem}
+  .catgrid button.on{border-color:var(--green); background:var(--green-soft); font-weight:700}
+  .rowbtns{display:flex; gap:10px}
+
+  /* ===== Charts ===== */
+  .chart{width:100%; overflow-x:auto}
+  svg text{font-family:inherit}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:.75rem; color:var(--muted); margin-top:8px}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+
+  /* ===== Misc ===== */
+  .kv{display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:.9rem}
+  .kv:last-child{border-bottom:none}
+  textarea#importBox{height:90px; font-size:.8rem; margin-top:6px}
+  .toast{
+    position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:60;
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:24px;
+    font-size:.85rem; opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .toast.on{opacity:1}
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Sổ thu chi</div>
+  <div class="month-nav">
+    <button id="prevM" aria-label="Tháng trước">‹</button>
+    <h1 id="monthTitle" class="num">Tháng</h1>
+    <button id="nextM" aria-label="Tháng sau">›</button>
+  </div>
+  <div class="totals num">
+    <div class="box"><div class="lbl">Thu</div><div class="val" id="tThu">0 ₫</div></div>
+    <div class="box"><div class="lbl">Chi</div><div class="val" id="tChi">0 ₫</div></div>
+    <div class="box"><div class="lbl">Còn lại</div><div class="val" id="tCon">0 ₫</div></div>
+  </div>
+</header>
+
+<div id="storeWarn">⚠️ Trình duyệt này không cho lưu dữ liệu — hãy tải file về máy và mở bằng Chrome để dữ liệu được giữ lại.</div>
+
+<main>
+  <!-- ===== SỔ GIAO DỊCH ===== -->
+  <section class="view on" id="view-so">
+    <div id="txList"></div>
+  </section>
+
+  <!-- ===== NGÂN SÁCH ===== -->
+  <section class="view" id="view-ngansach">
+    <div class="card">
+      <h2>Ngân sách tháng này</h2>
+      <p class="hint" id="budgetBase"></p>
+      <div class="gauge" id="gauge"></div>
+    </div>
+    <div class="card">
+      <h2>Cài đặt ngân sách</h2>
+      <label class="f" for="incomeIn">Thu nhập dự kiến mỗi tháng (₫)</label>
+      <input type="text" id="incomeIn" inputmode="numeric" placeholder="12.000.000">
+      <div class="grid2" style="grid-template-columns:1fr 1fr 1fr">
+        <div><label class="f" for="pNeed">Thiết yếu %</label><input type="number" id="pNeed" min="0" max="100"></div>
+        <div><label class="f" for="pWant">Cá nhân %</label><input type="number" id="pWant" min="0" max="100"></div>
+        <div><label class="f" for="pSave">Tiết kiệm %</label><input type="number" id="pSave" min="0" max="100"></div>
+      </div>
+      <p class="hint" id="pctWarn" style="margin-top:6px"></p>
+      <button class="btn" id="saveBudget">Lưu cài đặt</button>
+    </div>
+  </section>
+
+  <!-- ===== BIỂU ĐỒ ===== -->
+  <section class="view" id="view-bieudo">
+    <div class="card">
+      <h2>Chi theo danh mục</h2>
+      <div class="chart" id="chartCat"></div>
+    </div>
+    <div class="card">
+      <h2>Chi theo ngày trong tháng</h2>
+      <div class="chart" id="chartDay"></div>
+    </div>
+    <div class="card">
+      <h2>Thu – chi 6 tháng gần nhất</h2>
+      <div class="chart" id="chartTrend"></div>
+      <div class="legend"><span><i style="background:var(--green)"></i>Thu</span><span><i style="background:var(--red)"></i>Chi</span></div>
+    </div>
+  </section>
+
+  <!-- ===== DỮ LIỆU ===== -->
+  <section class="view" id="view-dulieu">
+    <div class="card">
+      <h2>Sao lưu &amp; khôi phục</h2>
+      <p class="hint">Dữ liệu chỉ nằm trên máy bạn. Nên xuất file sao lưu định kỳ để không mất dữ liệu khi đổi máy hoặc xóa trình duyệt.</p>
+      <button class="btn" id="exportJson">⬇️ Tải file sao lưu (.json)</button>
+      <button class="btn ghost" id="exportCsv">⬇️ Xuất bảng tính (.csv)</button>
+      <label class="f" for="importFile" style="margin-top:16px">Khôi phục từ file sao lưu</label>
+      <input type="file" id="importFile" accept=".json,application/json">
+      <button class="btn danger" id="wipe">Xóa toàn bộ dữ liệu</button>
+    </div>
+    <div class="card">
+      <h2>Thống kê nhanh</h2>
+      <div class="kv"><span>Tổng số giao dịch</span><b class="num" id="statCount">0</b></div>
+      <div class="kv"><span>Giao dịch đầu tiên</span><b class="num" id="statFirst">—</b></div>
+      <div class="kv"><span>Đã tiết kiệm/đầu tư (tất cả)</span><b class="num" id="statSave">0 ₫</b></div>
+    </div>
+  </section>
+</main>
+
+<button id="fab" aria-label="Thêm giao dịch">+</button>
+
+<nav class="tabs">
+  <button data-v="so" class="on"><span class="ico">🧾</span>Sổ</button>
+  <button data-v="ngansach"><span class="ico">🎯</span>Ngân sách</button>
+  <button data-v="bieudo"><span class="ico">📊</span>Biểu đồ</button>
+  <button data-v="dulieu"><span class="ico">💾</span>Dữ liệu</button>
+</nav>
+
+<!-- ===== SHEET THÊM/SỬA GIAO DỊCH ===== -->
+<div id="sheetWrap">
+  <div id="sheet">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Thêm giao dịch</h2>
+      <button id="closeSheet" aria-label="Đóng">✕</button>
+    </div>
+    <div class="seg" id="typeSeg">
+      <button data-t="chi" class="on chi">Chi tiền</button>
+      <button data-t="thu">Thu tiền</button>
+    </div>
+    <label class="f" for="amtIn">Số tiền (₫)</label>
+    <input type="text" id="amtIn" inputmode="numeric" placeholder="50.000">
+    <label class="f">Danh mục</label>
+    <div class="catgrid" id="catGrid"></div>
+    <div class="grid2">
+      <div><label class="f" for="dateIn">Ngày</label><input type="date" id="dateIn"></div>
+      <div><label class="f" for="noteIn">Ghi chú</label><input type="text" id="noteIn" placeholder="tuỳ chọn"></div>
+    </div>
+    <div class="rowbtns">
+      <button class="btn" id="saveTx">Lưu giao dịch</button>
+      <button class="btn danger" id="delTx" style="display:none">Xóa</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ================= Danh mục ================= */
+const CATS = {
+  chi: [
+    {id:'anuong',  n:'Ăn uống',    e:'🍚', b:'need'},
+    {id:'nhao',    n:'Nhà ở',      e:'🏠', b:'need'},
+    {id:'diennuoc',n:'Điện nước',  e:'💡', b:'need'},
+    {id:'dilai',   n:'Đi lại',     e:'🛵', b:'need'},
+    {id:'yte',     n:'Y tế',       e:'💊', b:'need'},
+    {id:'annggoai',n:'Ăn ngoài',   e:'☕', b:'want'},
+    {id:'giaitri', n:'Giải trí',   e:'🎮', b:'want'},
+    {id:'muasam',  n:'Mua sắm',    e:'🛍️', b:'want'},
+    {id:'hieuhi',  n:'Hiếu hỉ',    e:'🎁', b:'want'},
+    {id:'bhxh',    n:'BHXH',       e:'🛡️', b:'save'},
+    {id:'khancap', n:'Quỹ khẩn cấp',e:'🚨', b:'save'},
+    {id:'dautu',   n:'Đầu tư',     e:'📈', b:'save'},
+    {id:'khac',    n:'Khác',       e:'📦', b:'want'}
+  ],
+  thu: [
+    {id:'luong', n:'Lương',  e:'💵'},
+    {id:'thuong',n:'Thưởng', e:'🧧'},
+    {id:'phu',   n:'Thu phụ',e:'🔧'},
+    {id:'thukhac',n:'Khác',  e:'📦'}
+  ]
+};
+const BUCKETS = {need:'Thiết yếu', want:'Cá nhân', save:'Tiết kiệm & đầu tư'};
+const catOf = (type,id) => (CATS[type]||[]).find(c=>c.id===id) || {n:'Khác',e:'📦',b:'want'};
+
+/* ================= Lưu trữ ================= */
+const KEY='sothuchi_v1';
+let storageOK = true;
+try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); }
+catch(e){ storageOK=false; }
+
+let state = load();
+function load(){
+  const def = {settings:{income:12000000, pct:{need:50,want:30,save:20}}, tx:[]};
+  if(!storageOK) return def;
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return def;
+    const d = JSON.parse(raw);
+    if(!d || !Array.isArray(d.tx)) return def;
+    d.settings = Object.assign(def.settings, d.settings||{});
+    d.settings.pct = Object.assign({need:50,want:30,save:20}, d.settings.pct||{});
+    return d;
+  }catch(e){ return def; }
+}
+function save(){
+  if(!storageOK) return;
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+}
+if(!storageOK) document.getElementById('storeWarn').style.display='block';
+
+/* ================= Tiện ích ================= */
+const $ = s => document.querySelector(s);
+const fmt = n => new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' ₫';
+const fmtShort = n => {
+  const a=Math.abs(n);
+  if(a>=1e9) return (n/1e9).toFixed(1).replace('.0','')+' tỷ';
+  if(a>=1e6) return (n/1e6).toFixed(1).replace('.0','')+'tr';
+  if(a>=1e3) return Math.round(n/1e3)+'k';
+  return String(Math.round(n));
+};
+const parseAmt = s => Number(String(s).replace(/[^\d]/g,'')) || 0;
+const groupNum = s => {
+  const d = String(s).replace(/[^\d]/g,'');
+  return d.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+};
+const todayStr = () => {
+  const d=new Date(), p=x=>String(x).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+};
+const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastT;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1800);
+}
+
+/* ================= Tháng đang xem ================= */
+let cur = new Date(); cur.setDate(1);
+const ym = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+function txOfMonth(d){
+  const k = ym(d);
+  return state.tx.filter(t => t.date.slice(0,7)===k);
+}
+
+/* ================= Render tổng ================= */
+function render(){
+  $('#monthTitle').textContent = 'Tháng '+(cur.getMonth()+1)+'/'+cur.getFullYear();
+  const list = txOfMonth(cur);
+  const thu = list.filter(t=>t.type==='thu').reduce((s,t)=>s+t.amount,0);
+  const chi = list.filter(t=>t.type==='chi').reduce((s,t)=>s+t.amount,0);
+  $('#tThu').textContent = fmt(thu);
+  $('#tChi').textContent = fmt(chi);
+  $('#tCon').textContent = fmt(thu-chi);
+  renderList(list);
+  renderBudget(list, thu);
+  renderCharts(list);
+  renderDataStats();
+}
+
+/* ================= Sổ giao dịch ================= */
+function renderList(list){
+  const wrap = $('#txList');
+  if(!list.length){
+    wrap.innerHTML = '<div class="empty"><div class="big">🌱</div>Chưa có giao dịch nào trong tháng này.<br>Bấm nút <b>+</b> để ghi khoản thu chi đầu tiên.</div>';
+    return;
+  }
+  const byDay = {};
+  list.slice().sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id)
+      .forEach(t => { (byDay[t.date]=byDay[t.date]||[]).push(t); });
+  let html='';
+  for(const day of Object.keys(byDay)){
+    const [y,m,d] = day.split('-');
+    const sum = byDay[day].reduce((s,t)=> s + (t.type==='chi'?-t.amount:t.amount), 0);
+    html += '<div class="tx-day num">'+d+'/'+m+' &nbsp;·&nbsp; '+(sum<0?'-':'+')+fmt(Math.abs(sum))+'</div>';
+    for(const t of byDay[day]){
+      const c = catOf(t.type,t.cat);
+      html += '<div class="tx '+t.type+'" data-id="'+t.id+'" role="button" tabindex="0">'
+        + '<div class="dot">'+c.e+'</div>'
+        + '<div class="mid"><div class="cat">'+esc(c.n)+'</div>'
+        + (t.note?'<div class="note">'+esc(t.note)+'</div>':'')
+        + '</div><div class="amt num">'+(t.type==='chi'?'-':'+')+fmt(t.amount)+'</div></div>';
+    }
+  }
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.tx').forEach(el=>{
+    el.addEventListener('click', ()=> openSheet(Number(el.dataset.id)));
+  });
+}
+
+/* ================= Ngân sách ================= */
+function renderBudget(list, thuThucTe){
+  const st = state.settings;
+  const base = thuThucTe>0 ? thuThucTe : st.income;
+  $('#budgetBase').textContent = 'Tính trên thu nhập '+fmt(base)
+    + (thuThucTe>0 ? ' (thu thực tế tháng này)' : ' (thu nhập dự kiến)');
+  const spent = {need:0, want:0, save:0};
+  for(const t of list){
+    if(t.type!=='chi') continue;
+    const b = catOf('chi',t.cat).b || 'want';
+    spent[b] += t.amount;
+  }
+  let html='';
+  for(const b of ['need','want','save']){
+    const limit = base * (st.pct[b]||0)/100;
+    const used = spent[b];
+    const pct = limit>0 ? Math.min(used/limit*100, 100) : 0;
+    const over = limit>0 && used>limit;
+    const verb = b==='save' ? 'đã dành' : 'đã chi';
+    html += '<div class="row">'
+      + '<div class="top"><b>'+BUCKETS[b]+' · '+st.pct[b]+'%</b>'
+      + '<span class="num">'+fmt(used)+' / '+fmt(limit)+'</span></div>'
+      + '<div class="bar '+b+'"><div class="fill'+(over?' over':'')+'" style="width:'+pct+'%"></div></div>'
+      + '<div class="sub">'+(over
+          ? '⚠️ Vượt '+fmt(used-limit)
+          : verb+' '+Math.round(limit>0?used/limit*100:0)+'% · còn '+fmt(Math.max(limit-used,0)))
+      + '</div></div>';
+  }
+  $('#gauge').innerHTML = html;
+}
+
+$('#saveBudget').addEventListener('click', ()=>{
+  const inc = parseAmt($('#incomeIn').value);
+  const p = {
+    need: Number($('#pNeed').value)||0,
+    want: Number($('#pWant').value)||0,
+    save: Number($('#pSave').value)||0
+  };
+  if(inc<=0){ toast('Nhập thu nhập dự kiến trước đã'); return; }
+  state.settings.income = inc;
+  state.settings.pct = p;
+  save(); render(); toast('Đã lưu cài đặt ngân sách');
+});
+function fillBudgetForm(){
+  $('#incomeIn').value = groupNum(state.settings.income);
+  $('#pNeed').value = state.settings.pct.need;
+  $('#pWant').value = state.settings.pct.want;
+  $('#pSave').value = state.settings.pct.save;
+  pctWarn();
+}
+function pctWarn(){
+  const s = (Number($('#pNeed').value)||0)+(Number($('#pWant').value)||0)+(Number($('#pSave').value)||0);
+  $('#pctWarn').textContent = s===100 ? '' : 'Tổng hiện tại: '+s+'% (nên bằng 100%)';
+}
+['#pNeed','#pWant','#pSave'].forEach(s=> $(s).addEventListener('input', pctWarn));
+$('#incomeIn').addEventListener('input', e=>{ e.target.value = groupNum(e.target.value); });
+
+/* ================= Biểu đồ (SVG thuần) ================= */
+function svgOpen(w,h){ return '<svg viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'" xmlns="http://www.w3.org/2000/svg">'; }
+
+function renderCharts(list){
+  /* --- Chi theo danh mục: thanh ngang --- */
+  const byCat = {};
+  list.filter(t=>t.type==='chi').forEach(t=>{ byCat[t.cat]=(byCat[t.cat]||0)+t.amount; });
+  const rows = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(!rows.length){
+    $('#chartCat').innerHTML = '<p class="hint">Chưa có khoản chi nào trong tháng.</p>';
+  } else {
+    const max = rows[0][1], rh=30, W=460, labelW=112, valW=74;
+    let s = svgOpen(W, rows.length*rh+6);
+    const colors = {need:'#0E7C5B', want:'#D98E32', save:'#2D5FA6'};
+    rows.forEach(([cid,val],i)=>{
+      const c = catOf('chi',cid);
+      const y = i*rh+6;
+      const bw = Math.max((W-labelW-valW) * val/max, 3);
+      s += '<text x="'+(labelW-8)+'" y="'+(y+13)+'" text-anchor="end" font-size="11.5" fill="#1B2E28">'+c.e+' '+esc(c.n)+'</text>';
+      s += '<rect x="'+labelW+'" y="'+y+'" width="'+bw+'" height="18" rx="5" fill="'+(colors[c.b]||'#6B7F77')+'"/>';
+      s += '<text x="'+(labelW+bw+6)+'" y="'+(y+13)+'" font-size="11" fill="#6B7F77">'+fmtShort(val)+'</text>';
+    });
+    $('#chartCat').innerHTML = s+'</svg>';
+  }
+
+  /* --- Chi theo ngày: cột --- */
+  const days = new Date(cur.getFullYear(), cur.getMonth()+1, 0).getDate();
+  const perDay = new Array(days).fill(0);
+  list.filter(t=>t.type==='chi').forEach(t=>{
+    const d = Number(t.date.slice(8,10));
+    if(d>=1 && d<=days) perDay[d-1]+=t.amount;
+  });
+  const maxD = Math.max(...perDay, 1);
+  const W=460, H=140, pad=6, bw=(W-pad*2)/days;
+  let s2 = svgOpen(W,H+18);
+  perDay.forEach((v,i)=>{
+    const h = v>0 ? Math.max(v/maxD*(H-24), 2) : 0;
+    if(v>0) s2 += '<rect x="'+(pad+i*bw+1)+'" y="'+(H-h)+'" width="'+Math.max(bw-2,1.5)+'" height="'+h+'" rx="2" fill="#C4453B"/>';
+    if((i+1)%5===0||i===0) s2 += '<text x="'+(pad+i*bw+bw/2)+'" y="'+(H+13)+'" text-anchor="middle" font-size="9.5" fill="#6B7F77">'+(i+1)+'</text>';
+  });
+  if(maxD>1) s2 += '<text x="'+pad+'" y="12" font-size="10" fill="#6B7F77">cao nhất: '+fmtShort(maxD)+'</text>';
+  $('#chartDay').innerHTML = s2+'</svg>';
+
+  /* --- Xu hướng 6 tháng --- */
+  const months=[];
+  for(let i=5;i>=0;i--){
+    const d = new Date(cur.getFullYear(), cur.getMonth()-i, 1);
+    const k = ym(d);
+    const mtx = state.tx.filter(t=>t.date.slice(0,7)===k);
+    months.push({
+      label:(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2),
+      thu:mtx.filter(t=>t.type==='thu').reduce((a,t)=>a+t.amount,0),
+      chi:mtx.filter(t=>t.type==='chi').reduce((a,t)=>a+t.amount,0)
+    });
+  }
+  const maxT = Math.max(...months.map(m=>Math.max(m.thu,m.chi)), 1);
+  const W3=460, H3=150, colW=W3/6;
+  let s3 = svgOpen(W3,H3+20);
+  months.forEach((m,i)=>{
+    const x0 = i*colW+colW/2;
+    const hT = m.thu/maxT*(H3-20), hC = m.chi/maxT*(H3-20);
+    s3 += '<rect x="'+(x0-19)+'" y="'+(H3-hT)+'" width="16" height="'+Math.max(hT,1)+'" rx="3" fill="#0E7C5B"/>';
+    s3 += '<rect x="'+(x0+3)+'"  y="'+(H3-hC)+'" width="16" height="'+Math.max(hC,1)+'" rx="3" fill="#C4453B"/>';
+    s3 += '<text x="'+x0+'" y="'+(H3+15)+'" text-anchor="middle" font-size="10.5" fill="#6B7F77">'+m.label+'</text>';
+  });
+  $('#chartTrend').innerHTML = s3+'</svg>';
+}
+
+/* ================= Sheet thêm/sửa ================= */
+let sheetType='chi', sheetCat='anuong', editId=null;
+function buildCatGrid(){
+  const g = $('#catGrid');
+  g.innerHTML = CATS[sheetType].map(c=>
+    '<button type="button" data-c="'+c.id+'" class="'+(c.id===sheetCat?'on':'')+'"><span class="e">'+c.e+'</span>'+esc(c.n)+'</button>'
+  ).join('');
+  g.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{ sheetCat=b.dataset.c; buildCatGrid(); });
+  });
+}
+function setType(t){
+  sheetType=t;
+  if(!CATS[t].some(c=>c.id===sheetCat)) sheetCat = CATS[t][0].id;
+  $('#typeSeg').querySelectorAll('button').forEach(b=>{
+    b.className = b.dataset.t===t ? 'on '+t : '';
+  });
+  buildCatGrid();
+}
+$('#typeSeg').querySelectorAll('button').forEach(b=>{
+  b.addEventListener('click', ()=> setType(b.dataset.t));
+});
+$('#amtIn').addEventListener('input', e=>{ e.target.value = groupNum(e.target.value); });
+
+function openSheet(id){
+  editId = id ?? null;
+  if(editId!=null){
+    const t = state.tx.find(x=>x.id===editId);
+    if(!t){ editId=null; return; }
+    $('#sheetTitle').textContent='Sửa giao dịch';
+    $('#delTx').style.display='block';
+    sheetCat=t.cat; setType(t.type);
+    $('#amtIn').value=groupNum(t.amount);
+    $('#dateIn').value=t.date;
+    $('#noteIn').value=t.note||'';
+  } else {
+    $('#sheetTitle').textContent='Thêm giao dịch';
+    $('#delTx').style.display='none';
+    setType('chi');
+    $('#amtIn').value='';
+    $('#dateIn').value=todayStr();
+    $('#noteIn').value='';
+  }
+  $('#sheetWrap').classList.add('on');
+  setTimeout(()=> $('#amtIn').focus(), 60);
+}
+function closeSheet(){ $('#sheetWrap').classList.remove('on'); }
+$('#fab').addEventListener('click', ()=> openSheet());
+$('#closeSheet').addEventListener('click', closeSheet);
+$('#sheetWrap').addEventListener('click', e=>{ if(e.target.id==='sheetWrap') closeSheet(); });
+
+$('#saveTx').addEventListener('click', ()=>{
+  const amount = parseAmt($('#amtIn').value);
+  const date = $('#dateIn').value;
+  if(amount<=0){ toast('Nhập số tiền trước đã'); return; }
+  if(!date){ toast('Chọn ngày giao dịch'); return; }
+  const note = $('#noteIn').value.trim();
+  if(editId!=null){
+    const t = state.tx.find(x=>x.id===editId);
+    Object.assign(t,{type:sheetType, cat:sheetCat, amount, date, note});
+    toast('Đã cập nhật');
+  } else {
+    state.tx.push({id:Date.now(), type:sheetType, cat:sheetCat, amount, date, note});
+    toast('Đã ghi '+(sheetType==='chi'?'khoản chi':'khoản thu'));
+  }
+  save();
+  cur = new Date(Number(date.slice(0,4)), Number(date.slice(5,7))-1, 1);
+  closeSheet(); render();
+});
+$('#delTx').addEventListener('click', ()=>{
+  if(editId==null) return;
+  if(!confirm('Xóa giao dịch này?')) return;
+  state.tx = state.tx.filter(t=>t.id!==editId);
+  save(); closeSheet(); render(); toast('Đã xóa');
+});
+
+/* ================= Điều hướng ================= */
+$('#prevM').addEventListener('click', ()=>{ cur.setMonth(cur.getMonth()-1); render(); });
+$('#nextM').addEventListener('click', ()=>{ cur.setMonth(cur.getMonth()+1); render(); });
+document.querySelectorAll('nav.tabs button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('section.view').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.getElementById('view-'+b.dataset.v).classList.add('on');
+    if(b.dataset.v==='ngansach') fillBudgetForm();
+  });
+});
+
+/* ================= Dữ liệu: xuất / nhập ================= */
+function download(name, text, mime){
+  const blob = new Blob([text], {type:mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+}
+$('#exportJson').addEventListener('click', ()=>{
+  download('sothuchi-'+todayStr()+'.json', JSON.stringify(state,null,2), 'application/json');
+  toast('Đã tạo file sao lưu');
+});
+$('#exportCsv').addEventListener('click', ()=>{
+  const rows = [['Ngày','Loại','Danh mục','Nhóm','Số tiền','Ghi chú']];
+  state.tx.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{
+    const c = catOf(t.type,t.cat);
+    rows.push([t.date, t.type==='chi'?'Chi':'Thu', c.n, t.type==='chi'?BUCKETS[c.b]:'', t.amount, t.note||'']);
+  });
+  const csv = '\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  download('sothuchi-'+todayStr()+'.csv', csv, 'text/csv;charset=utf-8');
+  toast('Đã xuất file CSV');
+});
+$('#importFile').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const d = JSON.parse(r.result);
+      if(!d || !Array.isArray(d.tx)) throw 0;
+      if(!confirm('Khôi phục '+d.tx.length+' giao dịch từ file này? Dữ liệu hiện tại sẽ bị thay thế.')) return;
+      state = d;
+      state.settings = Object.assign({income:12000000,pct:{need:50,want:30,save:20}}, d.settings||{});
+      save(); render(); fillBudgetForm(); toast('Đã khôi phục dữ liệu');
+    }catch(err){ toast('File không hợp lệ'); }
+    e.target.value='';
+  };
+  r.readAsText(f);
+});
+$('#wipe').addEventListener('click', ()=>{
+  if(!confirm('Xóa TOÀN BỘ giao dịch và cài đặt? Hành động này không hoàn tác được.')) return;
+  if(!confirm('Chắc chắn chứ? Nên tải file sao lưu trước khi xóa.')) return;
+  state = {settings:{income:12000000, pct:{need:50,want:30,save:20}}, tx:[]};
+  save(); render(); fillBudgetForm(); toast('Đã xóa toàn bộ dữ liệu');
+});
+function renderDataStats(){
+  $('#statCount').textContent = state.tx.length;
+  const first = state.tx.slice().sort((a,b)=>a.date.localeCompare(b.date))[0];
+  $('#statFirst').textContent = first ? first.date.split('-').reverse().join('/') : '—';
+  const saved = state.tx.filter(t=>t.type==='chi' && catOf('chi',t.cat).b==='save')
+                        .reduce((s,t)=>s+t.amount,0);
+  $('#statSave').textContent = fmt(saved);
+}
+
+/* ================= Khởi động ================= */
+fillBudgetForm();
+render();
+
+/* ================= Chạy offline (service worker) ================= */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>
