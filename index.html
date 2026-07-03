@@ -238,8 +238,7 @@
       <div class="kv"><span>Tổng thu (toàn bộ)</span><b class="num" id="statThuAll" style="color:var(--green)">0 ₫</b></div>
       <div class="kv"><span>Tổng chi (toàn bộ)</span><b class="num" id="statChiAll" style="color:var(--red)">0 ₫</b></div>
       <div class="kv"><span>Còn lại (toàn bộ)</span><b class="num" id="statConAll">0 ₫</b></div>
-      <div class="kv"><span>Đã tiết kiệm/đầu tư (tất cả)</span><b class="num" id="statSave">0 ₫</b></div>
-      <div class="kv"><span>Tổng số giao dịch</span><b class="num" id="statCount">0</b></div>
+      <div class="kv"><span>Quỹ khẩn cấp (toàn bộ)</span><b class="num" id="statFund" style="color:var(--want)">0 ₫</b></div>
       <div class="kv"><span>Giao dịch đầu tiên</span><b class="num" id="statFirst">—</b></div>
     </div>
     <div class="card">
@@ -275,7 +274,10 @@
       <button data-t="thu">Thu tiền</button>
     </div>
     <label class="f" for="amtIn">Số tiền (₫)</label>
-    <input type="text" id="amtIn" inputmode="numeric" placeholder="50.000">
+    <div style="display:flex; gap:8px">
+      <input type="text" id="amtIn" inputmode="numeric" placeholder="50.000" style="flex:1">
+      <button type="button" id="signBtn" class="btn ghost sm" style="margin:0; width:54px; font-size:1.2rem" aria-label="Đổi dấu âm dương" title="Đổi dấu">±</button>
+    </div>
     <label class="f">Danh mục</label>
     <div class="catgrid" id="catGrid"></div>
     <div class="grid2">
@@ -308,7 +310,7 @@ const CATS = {
     {id:'bhxh',    n:'BHXH',       e:'🛡️', b:'save'},
     {id:'khancap', n:'Quỹ khẩn cấp',e:'🚨', b:'save'},
     {id:'dautu',   n:'Đầu tư',     e:'📈', b:'save'},
-    {id:'congviec',n:'Công việc',  e:'💼', b:'save'},
+    {id:'congviec',n:'Công việc',  e:'💼', b:'need'},
     {id:'khac',    n:'Khác',       e:'📦', b:'want'}
   ],
   thu: [
@@ -357,10 +359,17 @@ const fmtShort = n => {
   if(a>=1e3) return Math.round(n/1e3)+'k';
   return String(Math.round(n));
 };
-const parseAmt = s => Number(String(s).replace(/[^\d]/g,'')) || 0;
+const parseAmt = s => {
+  s = String(s).trim();
+  const neg = s.startsWith('-');
+  const n = Number(s.replace(/[^\d]/g,'')) || 0;
+  return neg ? -n : n;
+};
 const groupNum = s => {
-  const d = String(s).replace(/[^\d]/g,'');
-  return d.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  s = String(s).trim();
+  const neg = s.startsWith('-');
+  const d = s.replace(/[^\d]/g,'');
+  return (neg?'-':'') + d.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
 };
 const todayStr = () => {
   const d=new Date(), p=x=>String(x).padStart(2,'0');
@@ -413,11 +422,12 @@ function renderList(list){
     html += '<div class="tx-day num">'+d+'/'+m+' &nbsp;·&nbsp; '+(sum<0?'-':'+')+fmt(Math.abs(sum))+'</div>';
     for(const t of byDay[day]){
       const c = catOf(t.type,t.cat);
+      const net = t.type==='thu' ? t.amount : -t.amount;
       html += '<div class="tx '+t.type+'" data-id="'+t.id+'" role="button" tabindex="0">'
         + '<div class="dot">'+c.e+'</div>'
         + '<div class="mid"><div class="cat">'+esc(c.n)+'</div>'
         + (t.note?'<div class="note">'+esc(t.note)+'</div>':'')
-        + '</div><div class="amt num">'+(t.type==='chi'?'-':'+')+fmt(t.amount)+'</div></div>';
+        + '</div><div class="amt num">'+(net<0?'-':'+')+fmt(Math.abs(net))+'</div></div>';
     }
   }
   wrap.innerHTML = html;
@@ -519,12 +529,14 @@ function renderCharts(list){
   if(!state.tx.length){
     $('#chartAll').innerHTML = '<p class="hint">Chưa có dữ liệu.</p>';
   } else {
+    const fund = fundTotal();
     const items = [
       {n:'Thu',     v:allThu, c:'#0E7C5B'},
       {n:'Chi',     v:allChi, c:'#C4453B'},
-      {n:'Còn lại', v:allCon, c: allCon>=0 ? '#2D5FA6' : '#C4453B'}
+      {n:'Còn lại', v:allCon, c: allCon>=0 ? '#2D5FA6' : '#C4453B'},
+      {n:'Quỹ KC',  v:fund,   c: fund>=0   ? '#D98E32' : '#C4453B'}
     ];
-    const maxA = Math.max(allThu, allChi, Math.abs(allCon), 1);
+    const maxA = Math.max(allThu, allChi, Math.abs(allCon), Math.abs(fund), 1);
     const W=460, rh=44, labelW=76;
     let s2 = svgOpen(W, items.length*rh);
     items.forEach((it,i)=>{
@@ -565,6 +577,11 @@ $('#typeSeg').querySelectorAll('button').forEach(b=>{
   b.addEventListener('click', ()=> setType(b.dataset.t));
 });
 $('#amtIn').addEventListener('input', e=>{ e.target.value = groupNum(e.target.value); });
+$('#signBtn').addEventListener('click', ()=>{
+  const v = $('#amtIn').value.trim();
+  $('#amtIn').value = v.startsWith('-') ? v.slice(1) : '-'+v;
+  $('#amtIn').focus();
+});
 
 function openSheet(id){
   editId = id ?? null;
@@ -596,7 +613,10 @@ $('#sheetWrap').addEventListener('click', e=>{ if(e.target.id==='sheetWrap') clo
 $('#saveTx').addEventListener('click', ()=>{
   const amount = parseAmt($('#amtIn').value);
   const date = $('#dateIn').value;
-  if(amount<=0){ toast('Nhập số tiền trước đã'); return; }
+  if(amount===0){ toast('Nhập số tiền trước đã'); return; }
+  if(amount<0 && !(sheetType==='chi' && sheetCat==='khancap')){
+    toast('Số tiền âm chỉ dùng cho Quỹ khẩn cấp'); return;
+  }
   if(!date){ toast('Chọn ngày giao dịch'); return; }
   const note = $('#noteIn').value.trim();
   if(editId!=null){
@@ -676,6 +696,10 @@ $('#wipe').addEventListener('click', ()=>{
   state = {settings:{income:12000000, pct:{need:50,want:30,save:20}}, tx:[]};
   save(); render(); fillBudgetForm(); toast('Đã xóa toàn bộ dữ liệu');
 });
+function fundTotal(){
+  return state.tx.filter(t=>t.type==='chi' && t.cat==='khancap')
+                 .reduce((s,t)=>s+t.amount,0);
+}
 function renderDataStats(){
   const thuAll = state.tx.filter(t=>t.type==='thu').reduce((s,t)=>s+t.amount,0);
   const chiAll = state.tx.filter(t=>t.type==='chi').reduce((s,t)=>s+t.amount,0);
@@ -685,12 +709,12 @@ function renderDataStats(){
   const conEl = $('#statConAll');
   conEl.textContent = (con<0?'-':'')+fmt(Math.abs(con));
   conEl.style.color = con>=0 ? 'var(--save)' : 'var(--red)';
-  $('#statCount').textContent = state.tx.length;
+  const fund = fundTotal();
+  const fundEl = $('#statFund');
+  fundEl.textContent = (fund<0?'-':'')+fmt(Math.abs(fund));
+  fundEl.style.color = fund>=0 ? 'var(--want)' : 'var(--red)';
   const first = state.tx.slice().sort((a,b)=>a.date.localeCompare(b.date))[0];
   $('#statFirst').textContent = first ? first.date.split('-').reverse().join('/') : '—';
-  const saved = state.tx.filter(t=>t.type==='chi' && catOf('chi',t.cat).b==='save')
-                        .reduce((s,t)=>s+t.amount,0);
-  $('#statSave').textContent = fmt(saved);
 }
 
 /* ================= Khởi động ================= */
